@@ -1,0 +1,23 @@
+{
+  "name": "ipfs-study",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zealot-inc/ipfs-study.git"
+  },
+  "keywords": [],
+  "author": "Danny Gim<danny.gim@zealot.co.jp>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zealot-inc/ipfs-study/issues"
+  },
+  "homepage": "https://github.com/zealot-inc/ipfs-study#readme",
+  "devDependencies": {
+    "aws-cdk": "^2.33.0"
+  }
+}
