@@ -33,6 +33,7 @@ export class IpfsCluster3PeersStack extends cdk.Stack {
     const securityGroup = createIPFSServiceSecurityGroup({ scope, vpc });
 
     const logGroup = new logs.LogGroup(scope, 'LogGroup', {
+      logGroupName: 'ipfs-cluster-3-peers-log-group',
       retention: logs.RetentionDays.TWO_WEEKS,
     });
 
