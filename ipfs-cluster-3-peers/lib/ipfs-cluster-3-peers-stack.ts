@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as efs from 'aws-cdk-lib/aws-efs';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as servicediscovery from 'aws-cdk-lib/aws-servicediscovery';
 
 
@@ -43,6 +44,7 @@ export class IpfsCluster3PeersStack extends cdk.Stack {
 
         // IPFS Node Container
         const ipfsNodeContainer = createIPFSNodeContainer({
+          scope,
           taskDefinition,
           nodeName: `IPFSNode-${index}`,
           sourceVolume: volumeNameIPFSNode,
@@ -50,6 +52,7 @@ export class IpfsCluster3PeersStack extends cdk.Stack {
 
         // IPFS Cluster Container
         const _ = createIPFSClusterContainer({
+          scope,
           taskDefinition,
           clusterName: `IPFSCluster-${index}`,
           sourceVolume: volumeNameIPFSCluster,
@@ -265,10 +268,12 @@ function createIPFSPeerService({
 // IPFS Node Container
 // --------------------------------------------------------------------------------------------------------------------
 function createIPFSNodeContainer({
+  scope,
   taskDefinition,
   nodeName,
   sourceVolume,
 }: {
+  scope: cdk.Stack;
   taskDefinition: ecs.FargateTaskDefinition;
   nodeName: string;
   sourceVolume: string;
@@ -293,6 +298,10 @@ function createIPFSNodeContainer({
     environment: {
       IPFS_LOGGING: 'info',
     },
+    logging: new ecs.AwsLogDriver({
+      logGroup: new logs.LogGroup(scope, 'LogGroup'),
+      streamPrefix: nodeName,
+    }),
   });
 
   // Mount EFS Volume
@@ -309,11 +318,13 @@ function createIPFSNodeContainer({
 // IPFS Cluster Container
 // --------------------------------------------------------------------------------------------------------------------
 function createIPFSClusterContainer({
+  scope,
   taskDefinition,
   clusterName,
   sourceVolume,
   ipfsNodeContainer,
 }: {
+  scope: cdk.Stack;
   taskDefinition: ecs.FargateTaskDefinition;
   clusterName: string;
   sourceVolume: string;
@@ -338,6 +349,10 @@ function createIPFSClusterContainer({
       CLUSTER_RESTAPI_HTTPLISTENMULTIADDRESS: '/ip4/0.0.0.0/tcp/9094',
       CLUSTER_SECRET: clusterSecret,
     },
+    logging: new ecs.AwsLogDriver({
+      logGroup: new logs.LogGroup(scope, 'LogGroup'),
+      streamPrefix: clusterName,
+    }),
   });
 
   // Container Depends on IPFS Node Container
