@@ -32,6 +32,10 @@ export class IpfsCluster3PeersStack extends cdk.Stack {
     // SecurityGroup for IPFS Service
     const securityGroup = createIPFSServiceSecurityGroup({ scope, vpc });
 
+    const logGroup = new logs.LogGroup(scope, 'LogGroup', {
+      retention: logs.RetentionDays.TWO_WEEKS,
+    });
+
     Array.from({ length: numberOfPeers }, (_, i) => i)
       .forEach(index => {
         const taskDefinition = createIPFSTaskDefinition({
@@ -48,6 +52,7 @@ export class IpfsCluster3PeersStack extends cdk.Stack {
           taskDefinition,
           nodeName: `IPFSNode-${index}`,
           sourceVolume: volumeNameIPFSNode,
+          logGroup,
         });
 
         // IPFS Cluster Container
@@ -57,6 +62,7 @@ export class IpfsCluster3PeersStack extends cdk.Stack {
           clusterName: `IPFSCluster-${index}`,
           sourceVolume: volumeNameIPFSCluster,
           ipfsNodeContainer,
+          logGroup,
         });
 
         createIPFSPeerService({
@@ -272,11 +278,13 @@ function createIPFSNodeContainer({
   taskDefinition,
   nodeName,
   sourceVolume,
+  logGroup,
 }: {
   scope: cdk.Stack;
   taskDefinition: ecs.FargateTaskDefinition;
   nodeName: string;
   sourceVolume: string;
+  logGroup: logs.LogGroup;
 }): ecs.ContainerDefinition {
   // IPFS Node Container
   const ipfsNodeContainer = taskDefinition.addContainer(`${nodeName}-Container`, {
@@ -299,7 +307,7 @@ function createIPFSNodeContainer({
       IPFS_LOGGING: 'info',
     },
     logging: new ecs.AwsLogDriver({
-      logGroup: new logs.LogGroup(scope, 'LogGroup'),
+      logGroup,
       streamPrefix: nodeName,
     }),
   });
@@ -323,12 +331,14 @@ function createIPFSClusterContainer({
   clusterName,
   sourceVolume,
   ipfsNodeContainer,
+  logGroup,
 }: {
   scope: cdk.Stack;
   taskDefinition: ecs.FargateTaskDefinition;
   clusterName: string;
   sourceVolume: string;
   ipfsNodeContainer: ecs.ContainerDefinition;
+  logGroup: logs.LogGroup;
 }): ecs.ContainerDefinition {
   const clusterSecret = process.env.IPFS_CLUSTER_SECRET ?? '';
 
@@ -350,7 +360,7 @@ function createIPFSClusterContainer({
       CLUSTER_SECRET: clusterSecret,
     },
     logging: new ecs.AwsLogDriver({
-      logGroup: new logs.LogGroup(scope, 'LogGroup'),
+      logGroup,
       streamPrefix: clusterName,
     }),
   });
