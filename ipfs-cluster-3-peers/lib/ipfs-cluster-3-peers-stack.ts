@@ -5,26 +5,42 @@ import * as efs from 'aws-cdk-lib/aws-efs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as servicediscovery from 'aws-cdk-lib/aws-servicediscovery';
 
+import * as common from '../lib/common';
+
 
 export class IpfsCluster3PeersStack extends cdk.Stack {
   constructor(app: cdk.App, id: string, props?: cdk.StackProps) {
     super(app, id, props);
 
+    console.log('START IpfsCluster3PeersStack');
+
     const scope = this;
+    const store = common.VariableStore;
     const numberOfPeers = 3;
     const volumeNameIPFSNode = 'volume-ipfs-node';
     const volumeNameIPFSCluster = 'volume-ipfs-cluster';
 
     // VPC
-    const vpc = new ec2.Vpc(scope, 'VPC', {
-      maxAzs: 2,
+    const vpc = ec2.Vpc.fromLookup(scope, 'VPC', {
+      vpcName: common.VPC_NAME,
     });
 
     // Service Discovery
-    const dnsNamespace = createServiceDiscovery({ scope, vpc });
+    const dnsNamespace = servicediscovery.PrivateDnsNamespace.fromPrivateDnsNamespaceAttributes(scope, 'Namespace', {
+      namespaceName: common.NAMESPACE_NAME,
+      namespaceId: store.NAMESPACE_ID,
+      namespaceArn: store.NAMESPACE_ARN,
+    });
+    console.log(`dnsNamespace: ${dnsNamespace}`);
+    console.log(`namespaceName: ${dnsNamespace.namespaceName}`);
+    console.log(`namespaceId: ${dnsNamespace.namespaceId}`);
+    console.log(`namespaceArn: ${dnsNamespace.namespaceArn}`);
 
     // EFS
-    const fileSystem = createEFS({ scope, vpc });
+    const fileSystem = efs.FileSystem.fromFileSystemAttributes(scope, 'FileSystem', {
+      fileSystemId: store.FILE_SYSTEM_ID,
+      securityGroup: ec2.SecurityGroup.fromSecurityGroupId(scope, "EFSSecurityGroup", store.FILE_SYSTEM_SECURITY_GROUP_ID),
+    });
 
     // ECS Cluster
     const cluster = new ecs.Cluster(scope, 'Cluster', { vpc });
@@ -78,56 +94,6 @@ export class IpfsCluster3PeersStack extends cdk.Stack {
   }
 }
 
-
-// --------------------------------------------------------------------------------------------------------------------
-// Service Discovery
-// --------------------------------------------------------------------------------------------------------------------
-function createServiceDiscovery({
-  scope,
-  vpc,
-}: {
-  scope: cdk.Stack;
-  vpc: ec2.Vpc;
-}): servicediscovery.PrivateDnsNamespace {
-  const namespace = new servicediscovery.PrivateDnsNamespace(scope, 'Namespace', {
-    vpc,
-    name: 'ipfs-cluster-3-peers.local',
-  });
-  return namespace;
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-// EFS
-// --------------------------------------------------------------------------------------------------------------------
-function createEFS({
-  scope,
-  vpc,
-}: {
-  scope: cdk.Stack;
-  vpc: ec2.Vpc;
-}): efs.FileSystem {
-  // Security Group
-  const securityGroup = new ec2.SecurityGroup(scope, 'EFSSecurityGroup', {
-    securityGroupName: 'efs-security-group',
-    vpc,
-    description: 'EFSSecurityGroup',
-  });
-  securityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(2049), 'Allow allow access to EFS');
-
-
-  // EFS
-  const fileSystem = new efs.FileSystem(scope, 'FileSystem', {
-    vpc,
-    securityGroup,
-    encrypted: true,
-    lifecyclePolicy: efs.LifecyclePolicy.AFTER_14_DAYS,
-    performanceMode: efs.PerformanceMode.GENERAL_PURPOSE,
-    throughputMode: efs.ThroughputMode.BURSTING,
-  });
-
-  return fileSystem;
-}
-
 // --------------------------------------------------------------------------------------------------------------------
 // SecurityGroup for IPFS Service
 // --------------------------------------------------------------------------------------------------------------------
@@ -136,7 +102,7 @@ function createIPFSServiceSecurityGroup({
   vpc,
 }: {
   scope: cdk.Stack;
-  vpc: ec2.Vpc;
+  vpc: ec2.IVpc;
 }): ec2.SecurityGroup {
   // IPFS Service Security Group
   const securityGroup = new ec2.SecurityGroup(scope, `IPFSPeerSecurityGroup`, {
@@ -166,7 +132,7 @@ function createIPFSTaskDefinition({
   index,
 }: {
   scope: cdk.Stack;
-  fileSystem: efs.FileSystem;
+  fileSystem: efs.IFileSystem;
   volumeNameIPFSNode: string;
   volumeNameIPFSCluster: string;
   index: number;
